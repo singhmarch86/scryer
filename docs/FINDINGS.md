@@ -13,6 +13,96 @@ Entries are newest first.
 
 ---
 
+## 3. Only permissive CORS was a real gap for Phase 2 — and a shell bug nearly hid that
+
+**Found:** Phase 2, scoping the Spring rule pack. The original scope
+assumed seven classes needed custom rules: SpEL injection, JPA/Hibernate
+query injection, disabled CSRF, permissive CORS, exposed Actuator
+endpoints, insecure deserialization, and XXE. Gap-testing each against
+Semgrep's free registry (same methodology as finding #1) using fixtures
+under [testdata/fixtures/spring/](../testdata/fixtures/spring/) told a very
+different story once it was done correctly.
+
+**A false gap, caused by a shell bug, not a Semgrep gap:** The first sweep
+built `--config` flags dynamically in a zsh loop
+(`args="$args --config $c"`, then `semgrep $args ...`). Unlike bash, zsh
+does not word-split an unquoted variable in a simple command's argument
+list by default — `$args` was passed to semgrep as a single token
+`"--config p/java"` instead of two arguments. Semgrep's argparse didn't
+recognize that as `--config` at all and treated the whole string as the
+scan target, failing with `Invalid scanning root` — silently reported as
+zero results by a script that only checked the results count, not the
+exit code or `errors` field. That false "zero coverage" reading was caught
+only by re-running with literal, non-interpolated `--config` flags (no
+shell variables) and cross-checking against the exit code and the
+`errors` array every time — the same "verify, don't just claim" standard
+applied to a script that measures a claim to verify.
+
+**The actual, verified gap:** Redone cleanly, `p/java` + `p/security-audit`
++ `p/owasp-top-ten` + `p/secrets` combined catch six of the seven classes:
+- SpEL injection and JPA/Hibernate query injection — via genuine
+  **taint-mode** rules (`java.spring.security.audit.spel-injection`,
+  `java.spring.security.injection.tainted-sql-string`) that track a
+  `@RequestParam`/`@PathVariable` source to the sink across statements,
+  not just pattern-match a single call site.
+- Disabled CSRF (`java.spring.security.audit.spring-csrf-disabled`).
+- XXE (`java.lang.security.audit.xxe.documentbuilderfactory-disallow-doctype-decl-missing`).
+- Insecure deserialization
+  (`java.lang.security.audit.object-deserialization`) — a deliberately
+  blanket rule with no taint distinction: it flags *any*
+  `ObjectInputStream.readObject()` call, including
+  `InsecureDeserializationService.handleFixed()`'s fixed, non-request
+  byte array, on the reasoning that a gadget-chain exploit only needs an
+  exploitable classpath, not attacker-controlled bytes.
+- Exposed Actuator endpoints
+  (`java.spring.security.audit.spring-actuator-fully-enabled[-yaml]`,
+  under `p/owasp-top-ten` specifically) — targeting both `application.yml`
+  and `application.properties` (Semgrep's `languages: [yaml]` and
+  `languages: [generic]` both work against Spring Boot config files,
+  confirmed directly rather than assumed).
+
+Only **permissive CORS** (`@CrossOrigin(origins = "*")` and a global
+`CorsRegistry.addMapping(...).allowedOrigins("*")`) had zero hits across
+every combination tried, including `--config auto`.
+
+A second, subtler discovery from the same sweep: `--config auto` is
+**not** a superset of the named packs — `p/owasp-top-ten` alone caught the
+Actuator findings that a 1074-rule `--config auto` run missed entirely.
+`auto` is a curated, framework-detected selection, not "everything
+registered"; testing named packs individually remains necessary and
+`auto` can't be used as a shortcut proxy for "the broadest possible free
+coverage."
+
+**The fix:**
+- Wrote one custom rule pack, `rules/spring-permissive-cors.yaml`, with
+  two rule IDs: the `@CrossOrigin` annotation form (including the array
+  form with a wildcard buried among specific origins) and the global
+  `CorsRegistry` form.
+- Did **not** write rules for the other six classes — they're already
+  covered, and duplicating them would violate the same gap-first
+  discipline finding #1 established.
+- Changed Scryer's own default `-config` flag from `p/java,rules/` to
+  `p/java,p/security-audit,p/owasp-top-ten,rules/` in
+  [cmd/scryer/main.go](../cmd/scryer/main.go): the README already claimed
+  SpEL/JPA/CSRF/Actuator coverage, but the *documented default* only
+  included `p/java`, which doesn't carry any of it. Without this change,
+  a user following the README's own quick-start command would have gotten
+  none of the coverage the README describes.
+
+**Verified:**
+- `semgrep --validate --config rules/` passes (4 rules total).
+- Both CORS rule IDs fire on their vulnerable fixtures
+  (`CorsConfig.java:15`, `:30`, `WebCorsConfig.java:15`) and produce zero
+  false positives on the adjacent safe methods in the same files.
+- `scryer -target testdata/fixtures -fail-on none` (using the new default
+  config, no flags passed) reports all of: SQL injection,
+  command injection, hardcoded secret, JPA taint injection, XXE,
+  deserialization, CSRF-disabled, SpEL injection, and both CORS findings —
+  confirming the new default actually delivers the coverage the README
+  claims, not just what a hand-picked `-config` flag can produce.
+
+---
+
 ## 2. Semgrep silently skips any directory literally named `test/` or `tests/` by default
 
 **Found:** Phase 4, verifying `-format sarif` actually produces findings

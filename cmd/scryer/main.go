@@ -20,7 +20,14 @@ func main() {
 
 func run() int {
 	target := flag.String("target", ".", "path to the codebase to scan")
-	configsFlag := flag.String("config", "p/java,rules/", "comma-separated semgrep --config values (registry names like p/java, or local paths)")
+	// p/security-audit and p/owasp-top-ten carry the taint-mode SpEL/JPA
+	// injection, CSRF, XXE, and deserialization coverage this tool's own
+	// README describes — p/java alone doesn't include them (verified
+	// against testdata/fixtures/spring, see docs/FINDINGS.md #3). rules/ is
+	// Scryer's own pack, which currently adds only permissive-CORS: the one
+	// class of the original Phase 2 scope not already covered by the free
+	// registry.
+	configsFlag := flag.String("config", "p/java,p/security-audit,p/owasp-top-ten,rules/", "comma-separated semgrep --config values (registry names like p/java, or local paths)")
 	format := flag.String("format", "text", "output format: text, json, or sarif (for GitHub Code Scanning upload)")
 	failOn := flag.String("fail-on", "ERROR", "exit non-zero if any finding at or above this severity is present: ERROR, WARNING, INFO, or none")
 	flag.Parse()

@@ -12,9 +12,19 @@ Fortify and Checkmarx dominate enterprise Java/Spring AppSec because SAST
 is often compliance-mandated — not because anyone enjoys using them.
 They're expensive and infamous for high false-positive rates. Semgrep
 proved a faster, cheaper, lower-noise alternative can win; Scryer applies
-that same approach specifically to Spring's own vulnerability patterns
-(SpEL injection, JPA native query injection, disabled CSRF, exposed
-Actuator endpoints, ...) that generic rule packs don't cover deeply.
+that same approach to Spring specifically, in two parts:
+
+- **A curated default config** (`p/java` + `p/security-audit` +
+  `p/owasp-top-ten`) that actually surfaces Semgrep's existing
+  taint-mode coverage for SpEL injection, JPA/Hibernate query injection,
+  disabled CSRF, exposed Actuator endpoints, XXE, and insecure
+  deserialization — coverage that exists in the free registry but isn't
+  reachable via the commonly-recommended `p/java` alone.
+- **A small custom rule pack** for the real gaps that curation alone
+  can't fix: Java command injection, hardcoded credentials, and
+  permissive CORS — each verified against the free registry first (see
+  [docs/FINDINGS.md](docs/FINDINGS.md)) to confirm no existing rule
+  already covers it.
 
 ## Status
 
@@ -33,12 +43,14 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install semgrep
 
 go build -o bin/scryer ./cmd/scryer
-./bin/scryer -target /path/to/your/java/project -config "p/java,rules/"
+./bin/scryer -target /path/to/your/java/project
 ```
 
 - `-config` is a comma-separated list of Semgrep `--config` values: Semgrep
   registry names (`p/java`, `p/owasp-top-ten`, ...) and/or local paths
-  (`rules/` for Scryer's own Spring-specific pack).
+  (`rules/` for Scryer's own pack). Defaults to
+  `p/java,p/security-audit,p/owasp-top-ten,rules/` — see "Why" above for
+  why the registry packs are part of the default rather than optional.
 - `-format text` (default), `-format json`, or `-format sarif`.
 - `-fail-on ERROR|WARNING|INFO|none` controls the exit code, for CI gating.
   With `-format sarif`, this gates on SARIF's own `error`/`warning`/`note`

@@ -1,0 +1,39 @@
+rules:
+  - id: scryer.spring.permissive-cors-annotation
+    languages: [java]
+    severity: WARNING
+    message: >-
+      Detected @CrossOrigin configured with a wildcard origin (CWE-942).
+      This lets any website make cross-origin requests to this endpoint.
+      Semgrep's free registry (checked against p/java, p/security-audit,
+      p/owasp-top-ten, p/secrets, and --config auto) does not flag this
+      pattern for Spring — allow-list specific origins instead of using "*".
+    metadata:
+      cwe: "CWE-942: Permissive Cross-domain Policy with Untrusted Domains"
+      owasp: "A05:2021 - Security Misconfiguration"
+      references:
+        - https://owasp.org/Top10/A05_2021-Security_Misconfiguration/
+    pattern-either:
+      - pattern: |
+          @CrossOrigin(origins = "*")
+      - pattern: |
+          @CrossOrigin("*")
+      - pattern: |
+          @CrossOrigin(origins = {..., "*", ...})
+
+  - id: scryer.spring.permissive-cors-global-config
+    languages: [java]
+    severity: WARNING
+    message: >-
+      Detected a global CORS mapping (CorsRegistry.addMapping) allowing a
+      wildcard origin (CWE-942), which applies to every endpoint the
+      mapping covers, not just one controller. Semgrep's free registry (checked
+      against p/java, p/security-audit, p/owasp-top-ten, p/secrets, and
+      --config auto) does not flag this pattern for Spring — allow-list
+      specific origins instead of using "*".
+    metadata:
+      cwe: "CWE-942: Permissive Cross-domain Policy with Untrusted Domains"
+      owasp: "A05:2021 - Security Misconfiguration"
+      references:
+        - https://owasp.org/Top10/A05_2021-Security_Misconfiguration/
+    pattern: $REGISTRY.addMapping(...).allowedOrigins("*")
