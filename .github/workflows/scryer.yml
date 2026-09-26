@@ -1,0 +1,45 @@
+name: Scryer self-scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install semgrep
+        run: pip install semgrep
+
+      - name: Build scryer
+        run: go build -o bin/scryer ./cmd/scryer
+
+      # Scryer's own source is Go, not Java — testdata/fixtures is the only
+      # Java in this repo, deliberately vulnerable to demonstrate the
+      # scan-to-Code-Scanning pipeline end to end. -fail-on none: findings
+      # are surfaced via the Code Scanning upload below, not by failing
+      # this step. A real Scryer/semgrep exec failure still exits non-zero
+      # and fails the job. Point -target at your own Java/Spring source when
+      # adapting this workflow for a real project.
+      - name: Scan and produce SARIF
+        run: ./bin/scryer -target testdata/fixtures -config "p/java,rules/" -format sarif -fail-on none > results.sarif
+
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif

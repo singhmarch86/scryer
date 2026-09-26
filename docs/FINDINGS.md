@@ -13,11 +13,47 @@ Entries are newest first.
 
 ---
 
+## 2. Semgrep silently skips any directory literally named `test/` or `tests/` by default
+
+**Found:** Phase 4, verifying `-format sarif` actually produces findings
+when run against the repo. `scryer -format sarif -target test/fixtures
+-config "p/java,rules/"` exited 0 with an *empty* SARIF `results` array —
+no error, no warning, just zero findings for a fixture file with three
+known, deliberate vulnerabilities.
+
+**The gap:** `semgrep --verbose` on the same target reported "Files
+matching .semgrepignore patterns: 1" — Semgrep ships a default
+`.semgrepignore` (documented at
+https://semgrep.dev/docs/ignoring-files-folders-code/#understand-semgrep-defaults)
+that excludes directories named exactly `test` or `tests`, on the
+assumption that test code isn't worth scanning. That's a reasonable
+default for a real project's `src/test/java`, but it silently ate
+Scryer's own fixture directory — and would silently eat any user's fixture
+or sample directory that happens to be named `test/`, with zero
+indication in the non-verbose output that anything was skipped.
+
+Confirmed by copying the identical fixture file into a directory named
+`testdata/` instead (Go's own idiomatic convention, which is *not* on
+Semgrep's default-ignore list) in a throwaway git repo: same file, same
+rule configs, 3 findings instead of 0.
+
+**The fix:** Renamed `test/fixtures/` to
+[testdata/fixtures/](../testdata/fixtures/VulnerableController.java)
+throughout the repo. No code change needed — the fix is entirely about
+which path the fixture lives at.
+
+**Verified:** `scryer -format sarif -target testdata/fixtures -config
+"p/java,rules/"` now reports 3 results (1 SQL injection from `p/java`, plus
+the command-injection and hardcoded-secret findings from Scryer's own
+rules) instead of 0.
+
+---
+
 ## 1. Semgrep's full free registry misses classic Java command injection and hardcoded credentials
 
 **Found:** Phase 1, building the core wrapper. Before writing any custom
 rules, ran Semgrep against a small fixture
-(`test/fixtures/VulnerableController.java`) containing three deliberate,
+(`testdata/fixtures/VulnerableController.java`) containing three deliberate,
 textbook vulnerabilities: SQL injection via string concatenation, command
 injection via `Runtime.exec()` with concatenated input, and a hardcoded
 password field.

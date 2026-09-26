@@ -39,8 +39,27 @@ go build -o bin/scryer ./cmd/scryer
 - `-config` is a comma-separated list of Semgrep `--config` values: Semgrep
   registry names (`p/java`, `p/owasp-top-ten`, ...) and/or local paths
   (`rules/` for Scryer's own Spring-specific pack).
-- `-format text` (default) or `-format json`.
+- `-format text` (default), `-format json`, or `-format sarif`.
 - `-fail-on ERROR|WARNING|INFO|none` controls the exit code, for CI gating.
+  With `-format sarif`, this gates on SARIF's own `error`/`warning`/`note`
+  levels instead (`INFO` is accepted as an alias for `note`).
+
+### Uploading to GitHub Code Scanning
+
+`-format sarif` produces GitHub's native SARIF format, so findings show up
+in a repo's Security tab — free triage UI, without Scryer needing to build
+one. See [.github/workflows/scryer.yml](.github/workflows/scryer.yml) for a
+working GitHub Actions job: it scans, uploads via
+`github/codeql-action/upload-sarif@v3`, and requires `security-events:
+write` permission. Adapt the `-target` in that workflow to your own
+Java/Spring source when reusing it — as shipped it points at
+`testdata/fixtures`, Scryer's own deliberately-vulnerable demo fixture,
+since Scryer's own source is Go.
+
+> [!NOTE]
+> Semgrep skips any directory literally named `test/` or `tests/` by
+> default (see [docs/FINDINGS.md](docs/FINDINGS.md) finding #2) — that's
+> why Scryer's fixtures live under `testdata/`, not `test/`.
 
 ## License
 

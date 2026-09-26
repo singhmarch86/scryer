@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -105,5 +106,101 @@ func TestScanUnparsableOutputWithExecFailure(t *testing.T) {
 	_, err := r.Scan(context.Background(), []string{"rules/"}, ".")
 	if err == nil {
 		t.Fatal("expected error when semgrep fails and produces no valid JSON")
+	}
+}
+
+// realSARIFSample is trimmed from an actual `semgrep --sarif` run against
+// testdata/fixtures/VulnerableController.java (see docs/FINDINGS.md finding
+// #2) - real shape, not guessed. Notably, results[] never carries a "level"
+// field directly; severity lives on tool.driver.rules[].defaultConfiguration
+// and results reference it only by ruleId.
+const realSARIFSample = `{
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Semgrep OSS",
+          "rules": [
+            {"id": "java.lang.security.audit.formatted-sql-string.formatted-sql-string", "defaultConfiguration": {"level": "warning"}},
+            {"id": "rules.scryer.java.command-injection", "defaultConfiguration": {"level": "error"}},
+            {"id": "rules.scryer.java.hardcoded-secret", "defaultConfiguration": {"level": "warning"}}
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "java.lang.security.audit.formatted-sql-string.formatted-sql-string",
+          "locations": [{"physicalLocation": {"artifactLocation": {"uri": "testdata/fixtures/VulnerableController.java"}, "region": {"startLine": 11}}}]
+        },
+        {
+          "ruleId": "rules.scryer.java.command-injection",
+          "locations": [{"physicalLocation": {"artifactLocation": {"uri": "testdata/fixtures/VulnerableController.java"}, "region": {"startLine": 16}}}]
+        },
+        {
+          "ruleId": "rules.scryer.java.hardcoded-secret",
+          "locations": [{"physicalLocation": {"artifactLocation": {"uri": "testdata/fixtures/VulnerableController.java"}, "region": {"startLine": 20}}}]
+        }
+      ]
+    }
+  ]
+}`
+
+func TestScanSARIFPassesThroughUnmodified(t *testing.T) {
+	r := &Runner{BinaryPath: fakeSemgrep(t, realSARIFSample, 1)}
+	out, err := r.ScanSARIF(context.Background(), []string{"rules/"}, ".")
+	if err != nil {
+		t.Fatalf("ScanSARIF: %v", err)
+	}
+	// Byte-for-byte (modulo the trailing newline the fake shell script's
+	// heredoc adds): this must be exactly what semgrep produced, not a
+	// reserialized version that could drop or reorder fields GitHub relies on.
+	if strings.TrimRight(string(out), "\n") != realSARIFSample {
+		t.Fatalf("expected SARIF output passed through unmodified, got a different byte sequence")
+	}
+}
+
+func TestScanSARIFRequiresConfig(t *testing.T) {
+	r := &Runner{BinaryPath: fakeSemgrep(t, realSARIFSample, 0)}
+	if _, err := r.ScanSARIF(context.Background(), nil, "."); err == nil {
+		t.Fatal("expected error for empty configs")
+	}
+}
+
+func TestScanSARIFRejectsInvalidOutput(t *testing.T) {
+	r := &Runner{BinaryPath: fakeSemgrep(t, "not sarif at all", 1)}
+	if _, err := r.ScanSARIF(context.Background(), []string{"rules/"}, "."); err == nil {
+		t.Fatal("expected error when semgrep doesn't produce valid SARIF")
+	}
+}
+
+// TestSARIFSeverityCounts covers the exact bug found and fixed while
+// verifying this feature end-to-end (docs/FINDINGS.md finding #2): real
+// semgrep SARIF results omit "level" and rely on the rule's
+// defaultConfiguration.level being looked up by ruleId. A version of
+// SARIFSeverityCounts that only read results[].level passed this test's
+// predecessor (which put level directly on results) but silently counted
+// every real finding as "warning" against actual semgrep output.
+func TestSARIFSeverityCounts(t *testing.T) {
+	counts, err := SARIFSeverityCounts([]byte(realSARIFSample))
+	if err != nil {
+		t.Fatalf("SARIFSeverityCounts: %v", err)
+	}
+	if counts["warning"] != 2 {
+		t.Errorf("expected 2 warnings (sql-string finding + hardcoded-secret), got %d", counts["warning"])
+	}
+	if counts["error"] != 1 {
+		t.Errorf("expected 1 error (command-injection), got %d", counts["error"])
+	}
+}
+
+func TestSARIFSeverityCountsDefaultsMissingLevelToWarning(t *testing.T) {
+	sarif := `{"runs":[{"results":[{"ruleId":"x"}]}]}`
+	counts, err := SARIFSeverityCounts([]byte(sarif))
+	if err != nil {
+		t.Fatalf("SARIFSeverityCounts: %v", err)
+	}
+	if counts["warning"] != 1 {
+		t.Errorf("expected a result with no level to default to warning per the SARIF spec, got %v", counts)
 	}
 }

@@ -16,7 +16,7 @@ that it doesn't false-positive on safe code).
 ```sh
 source ../.venv/bin/activate  # or wherever your semgrep venv lives
 semgrep --validate --config=rules/
-semgrep --config=rules/ --json test/fixtures/VulnerableController.java
+semgrep --config=rules/ --json testdata/fixtures/VulnerableController.java
 ```
 
 Check both directions: that it fires on the vulnerable pattern it's meant

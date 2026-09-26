@@ -5,7 +5,7 @@
 | 1. Core wrapper | Shell out to Semgrep, parse JSON output, CLI with text/JSON output and CI exit-code gating — **done** |
 | 2. Spring rule pack | Deeper custom rules: SpEL injection, JPA/Hibernate query injection, disabled CSRF, permissive CORS, exposed Actuator endpoints, insecure deserialization, XXE — validated against a real vulnerable Spring app |
 | 3. Benchmarking | Measured against [OWASP Benchmark](https://owasp.org/www-project-benchmark/) (a Java test suite built specifically to measure SAST true/false-positive rates — the SAST equivalent of GoTestWAF), gaps found and fixed, results published honestly |
-| 4. CI integration | GitHub Action, SARIF upload to GitHub code scanning, PR comment annotations, HTML report |
+| 4. CI integration | SARIF output (`-format sarif`) and a GitHub Actions workflow uploading to GitHub Code Scanning — **done**. PR comment annotations, HTML report, and a reusable public Action are separate, not-yet-started items. |
 | 5. Hosted dashboard (paid tier) | Trend tracking across scans, triage workflow (mark false positive, track fixed vs. open). Same open-core model as Rampart. Not started. |
 
 ## Known limitations
