@@ -212,6 +212,11 @@ func (r *Runner) run(ctx context.Context, configs []string, target string, forma
 	}
 	args = append(args, target)
 
+	// #nosec G204 -- r.BinaryPath, configs, and target all come from the
+	// -config/-target CLI flags the operator (or their own CI job) passes
+	// at invocation, not from scanned file content or any network input;
+	// exec.CommandContext also passes args as an argv array, not through a
+	// shell, so there's no shell-metacharacter injection surface either way.
 	cmd := exec.CommandContext(ctx, r.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

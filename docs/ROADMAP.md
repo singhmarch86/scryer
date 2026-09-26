@@ -7,6 +7,7 @@
 | 3. Benchmarking | Measured against [OWASP Benchmark](https://owasp.org/www-project-benchmark/) (a Java test suite built specifically to measure SAST true/false-positive rates — the SAST equivalent of GoTestWAF), gaps found and fixed, results published honestly |
 | 4. CI integration | SARIF output (`-format sarif`) and a GitHub Actions workflow uploading to GitHub Code Scanning — **done**. PR comment annotations, HTML report, and a reusable public Action are separate, not-yet-started items. |
 | 5. Hosted dashboard (paid tier) | Trend tracking across scans, triage workflow (mark false positive, track fixed vs. open). Same open-core model as Rampart. Not started. |
+| 5.5 Self-scan | `govulncheck` + `gosec` against Scryer's own Go source, wired into CI — **done**, see docs/FINDINGS.md #4 |
 
 ## Known limitations
 

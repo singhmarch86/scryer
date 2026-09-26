@@ -1,15 +1,50 @@
-# Findings: gaps found in Semgrep's free registry, and the custom rules that close them
+# Findings: gaps in Semgrep's free registry, and bugs found in Scryer itself
 
 This is a running log, kept alongside the code as Scryer is built, of every
-real detection gap found in Semgrep's free/OSS rule registry — not
-hypothetical, verified by actually running Semgrep against real vulnerable
-code — along with the custom rule written to close it and how that rule
-was itself verified (both that it catches the real case and that it
-doesn't false-positive on safe code). Same standard Rampart's
-`docs/FINDINGS.md` holds itself to: a security tool should verify its own
-claims, not just assert them.
+real detection gap found in Semgrep's free/OSS rule registry (with the
+custom rule written to close it) and every real bug or vulnerability found
+in Scryer's own code — not hypothetical, verified by actually running the
+tool, not asserted. Same standard Rampart's `docs/FINDINGS.md` holds itself
+to: a security tool should verify its own claims.
 
 Entries are newest first.
+
+---
+
+## 4. Scryer had never pointed a scanner at its own Go source
+
+**Found:** Same gap as Rampart's docs/FINDINGS.md #8 — every finding above
+came from testing Scryer's detection logic (does a rule fire correctly),
+never from static analysis or dependency scanning of Scryer's own Go code.
+Ran `govulncheck` and `gosec` for the first time.
+
+**govulncheck:** 0 vulnerabilities reachable from Scryer's code (it has no
+third-party dependencies — stdlib only). 9 vulnerabilities existed in the
+Go standard library itself (`net/url`, `crypto/tls`, `net/http`,
+`encoding/xml`, `encoding/asn1`, `golang.org/x/net/dns/dnsmessage`,
+`golang.org/x/net/idna`) but weren't reachable from Scryer's call graph —
+fixed anyway, same as Rampart, by bumping the toolchain: `go get
+go@1.26.6` (auto-upgraded to `go1.26.8`).
+
+**gosec:** 1 finding, a false positive — `internal/semgrep/semgrep.go`'s
+`run()` calls `exec.CommandContext(ctx, r.BinaryPath, args...)` (G204,
+"subprocess launched with a potential tainted input"). `r.BinaryPath`
+defaults to `"semgrep"`; `configs` and `target` come from the `-config`
+and `-target` CLI flags the operator (or their own CI job) passes at
+invocation — not from scanned file content or any network input. gosec
+can't distinguish operator-supplied CLI args from attacker-controlled
+input, the same class of false positive as Rampart's G304 findings.
+`exec.CommandContext` also passes `args` as an argv array, not through a
+shell, so there's no shell-metacharacter injection surface either way.
+Suppressed with an inline `#nosec G204` comment naming both reasons.
+
+**The fix:** Toolchain bump (`go.mod`: `go 1.26` → `go 1.26.6`) and one
+`#nosec`-annotated false positive. Added a `security` job to a new
+`.github/workflows/ci.yml` running both scanners on every push.
+
+**Verified:** `govulncheck ./...` → "No vulnerabilities found." `gosec
+./...` → 0 issues, 1 nosec. `go build`, `go vet`, and `go test -race ./...`
+all pass unchanged.
 
 ---
 
