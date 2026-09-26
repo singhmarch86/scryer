@@ -1,0 +1,70 @@
+// Command scryer runs Semgrep (official rule packs plus Scryer's own
+// Spring-specific custom rules) against a Java/Spring codebase and reports
+// findings.
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/gauravdeepsingh/scryer/internal/report"
+	"github.com/gauravdeepsingh/scryer/internal/semgrep"
+)
+
+func main() {
+	os.Exit(run())
+}
+
+func run() int {
+	target := flag.String("target", ".", "path to the codebase to scan")
+	configsFlag := flag.String("config", "p/java,rules/", "comma-separated semgrep --config values (registry names like p/java, or local paths)")
+	format := flag.String("format", "text", "output format: text or json")
+	failOn := flag.String("fail-on", "ERROR", "exit non-zero if any finding at or above this severity is present: ERROR, WARNING, INFO, or none")
+	flag.Parse()
+
+	configs := strings.Split(*configsFlag, ",")
+
+	runner := semgrep.NewRunner()
+	results, err := runner.Scan(context.Background(), configs, *target)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "scryer:", err)
+		return 2
+	}
+
+	report.SortBySeverity(results)
+
+	switch *format {
+	case "json":
+		if err := report.WriteJSON(os.Stdout, results); err != nil {
+			fmt.Fprintln(os.Stderr, "scryer:", err)
+			return 2
+		}
+	default:
+		if err := report.WriteText(os.Stdout, results); err != nil {
+			fmt.Fprintln(os.Stderr, "scryer:", err)
+			return 2
+		}
+	}
+
+	if shouldFail(results, *failOn) {
+		return 1
+	}
+	return 0
+}
+
+func shouldFail(results []semgrep.Result, failOn string) bool {
+	threshold, ok := map[string]int{"ERROR": 0, "WARNING": 1, "INFO": 2}[strings.ToUpper(failOn)]
+	if !ok {
+		return false // "none" or unrecognized: never fail the exit code on findings
+	}
+	rank := map[string]int{"ERROR": 0, "WARNING": 1, "INFO": 2}
+	for _, r := range results {
+		if rank[r.Extra.Severity] <= threshold {
+			return true
+		}
+	}
+	return false
+}

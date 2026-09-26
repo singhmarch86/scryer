@@ -1,0 +1,28 @@
+rules:
+  - id: scryer.java.command-injection
+    languages: [java]
+    severity: ERROR
+    message: >-
+      Detected string concatenation used to build a command passed to
+      Runtime.exec() (CWE-78). If any part of the concatenated value comes
+      from user input, this allows arbitrary command execution. Semgrep's
+      free registry does not catch this pattern for Java (verified: a
+      `semgrep --config auto` scan against this exact pattern produced zero
+      findings during Scryer's own testing) — pass arguments as a String[]
+      instead of a single concatenated string, and validate/allowlist any
+      user-controlled part.
+    metadata:
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      owasp: "A03:2021 - Injection"
+      references:
+        - https://owasp.org/Top10/A03_2021-Injection/
+    patterns:
+      - pattern-either:
+          # Concatenation directly at the call site.
+          - pattern: Runtime.getRuntime().exec("..." + $X)
+          - pattern: Runtime.getRuntime().exec($X + "...")
+          # Built into a local variable first, then passed to exec().
+          - pattern: |
+              $CMD = "..." + $X;
+              ...
+              Runtime.getRuntime().exec($CMD);

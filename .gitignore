@@ -1,0 +1,6 @@
+/bin/
+/dist/
+.venv/
+*.sarif
+*.log
+.DS_Store
