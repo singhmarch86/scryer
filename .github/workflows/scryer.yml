@@ -24,8 +24,15 @@ jobs:
         with:
           python-version: "3.x"
 
+      # pipx, not pip: GitHub's Ubuntu runners can resolve setup-python's
+      # "3.x" to a system-provided Python that's PEP 668
+      # externally-managed, where a bare `pip install` fails outright (hit
+      # the same class of error locally with Homebrew's Python earlier in
+      # this project's development). pipx installs into its own isolated
+      # venv and is preinstalled on GitHub-hosted runners specifically for
+      # this case.
       - name: Install semgrep
-        run: pip install semgrep
+        run: pipx install semgrep
 
       - name: Build scryer
         run: go build -o bin/scryer ./cmd/scryer
