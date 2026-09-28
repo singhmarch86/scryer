@@ -144,3 +144,72 @@ Both scanners now run in CI on every push.
 [link to docs/FINDINGS.md#4]
 
 #buildinpublic #appsec #golang
+
+---
+
+## LinkedIn — architecture thesis (not a bug post)
+
+**Body:**
+
+The pitch for Scryer in one sentence: don't reimplement pattern matching
+or taint analysis, find and close the specific gaps a proven engine
+leaves open.
+
+Semgrep is genuinely good — its taint-mode SQL injection detection for
+Java is strong, and testing confirmed most of what I'd have hand-written
+as custom Spring rules (SpEL injection, JPA query injection, disabled
+CSRF, exposed Actuator endpoints, XXE, insecure deserialization) is
+already covered by its free registry, once you point it at the right
+packs (`p/security-audit` + `p/owasp-top-ten`, not just the commonly
+recommended `p/java` alone).
+
+What Scryer actually adds is small and specific: a curated default config
+that surfaces coverage the registry already has but doesn't default to,
+plus a handful of custom rules for the real, verified gaps (Java command
+injection, hardcoded credentials, permissive CORS) — each one tested
+against the broadest free config first to confirm it's an actual gap, not
+assumed.
+
+Fortify and Checkmarx dominate enterprise Java/Spring AppSec largely
+because SAST is compliance-mandated, not because anyone likes using them
+— expensive, noisy, high false-positive rates. Semgrep already proved a
+faster, cheaper alternative can win on the general case. Scryer's bet is
+that the same approach — proven engine, targeted gap-closing, honest
+about what's actually missing — wins for Spring specifically too.
+
+[repo link]
+
+#buildinpublic #appsec #softwarearchitecture #java
+
+---
+
+## LinkedIn — try it yourself
+
+**Body:**
+
+Scryer is a Java/Spring static analysis tool that wraps Semgrep instead
+of reinventing it — closing the specific, verified gaps the free registry
+leaves open (Java command injection, hardcoded credentials, permissive
+CORS) rather than duplicating coverage that already exists for free.
+
+Try it against the deliberately vulnerable fixtures in the repo:
+
+```
+git clone https://github.com/singhmarch86/scryer
+cd scryer
+pip install semgrep   # or pipx install semgrep
+go build -o bin/scryer ./cmd/scryer
+./bin/scryer -target testdata/fixtures
+```
+
+Point `-target` at your own Java/Spring source to run it for real, or
+`-format sarif` to wire it into GitHub Code Scanning (`.github/workflows/scryer.yml`
+in the repo is a working example, not a hypothetical one — see it run in
+Actions on every push).
+
+Every real gap this project found and closed is logged with root cause,
+fix, and how it was verified — not just asserted: [link to docs/FINDINGS.md]
+
+Open source, Apache 2.0: https://github.com/singhmarch86/scryer
+
+#buildinpublic #appsec #opensource #java #devsecops
