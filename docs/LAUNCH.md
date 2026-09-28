@@ -4,6 +4,11 @@ Drafts only — nothing here gets posted automatically. Copy, edit to sound
 like you, swap `[link]`/`[repo link]` for the real GitHub URL once
 public, and post yourself.
 
+For a suggested day-by-day posting order (one post/day, interleaved with
+the Rampart drafts), see the "Suggested LinkedIn posting order" section
+at the top of
+[rampart/docs/LAUNCH.md](https://github.com/singhmarch86/rampart/blob/main/docs/LAUNCH.md).
+
 ---
 
 ## LinkedIn — why Scryer exists (the gap-discovery story)
