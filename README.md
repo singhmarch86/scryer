@@ -76,7 +76,7 @@ since Scryer's own source is Go.
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE). Same open-core intent as
-[Rampart](https://github.com/gauravdeepsingh/rampart): the scanning engine
+[Rampart](https://github.com/singhmarch86/rampart): the scanning engine
 and rule pack are free and stay free; a hosted dashboard (trend tracking,
 triage workflow) is planned as a paid add-on later, not required to run
 the core tool.

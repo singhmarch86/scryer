@@ -7,7 +7,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/gauravdeepsingh/scryer/internal/semgrep"
+	"github.com/singhmarch86/scryer/internal/semgrep"
 )
 
 var severityRank = map[string]int{"ERROR": 0, "WARNING": 1, "INFO": 2}

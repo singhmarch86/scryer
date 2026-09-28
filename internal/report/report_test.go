@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gauravdeepsingh/scryer/internal/semgrep"
+	"github.com/singhmarch86/scryer/internal/semgrep"
 )
 
 func TestSortBySeverityOrdersErrorsFirst(t *testing.T) {

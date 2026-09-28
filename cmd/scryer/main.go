@@ -10,8 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gauravdeepsingh/scryer/internal/report"
-	"github.com/gauravdeepsingh/scryer/internal/semgrep"
+	"github.com/singhmarch86/scryer/internal/report"
+	"github.com/singhmarch86/scryer/internal/semgrep"
 )
 
 func main() {
